@@ -95,4 +95,40 @@ class WebApiTests {
         mvc.perform(get("/api/admin/policies")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.['fine.daily']").value(0.5));
     }
+
+    @Test
+    void acquisitionAdviceAcquireAndEventsOverHttp() throws Exception {
+        // 单部书目采购建议（未达热门阈值也可查看，字段齐全）
+        mvc.perform(get("/api/admin/acquisitions/demand/bibs/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bibId").value(1))
+                .andExpect(jsonPath("$.queueThreshold").value(3))
+                .andExpect(jsonPath("$.targetLibraries").isArray());
+
+        // 参数缺失 → 400
+        mvc.perform(post("/api/admin/acquisitions/copies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bibId\":2}"))
+                .andExpect(status().isBadRequest());
+
+        // 红楼梦无人排队：在城北新增 1 册 → 直接上架 SHELVED
+        mvc.perform(post("/api/admin/acquisitions/copies")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"bibId":2,"libraryCode":"NORTH","count":1,"staff":"采购馆员小陈","note":"热门书加采"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.count").value(1))
+                .andExpect(jsonPath("$.assignments[0].mode").value("SHELVED"))
+                .andExpect(jsonPath("$.assignments[0].toLibraryCode").value("NORTH"));
+
+        // 流转记录：含本次 ACQUIRE
+        mvc.perform(get("/api/admin/acquisitions/events/bibs/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].eventType").value("ACQUIRE"))
+                .andExpect(jsonPath("$[0].staff").value("采购馆员小陈"));
+
+        // 热门建议列表可访问
+        mvc.perform(get("/api/admin/acquisitions/demand/hot")).andExpect(status().isOk());
+    }
 }

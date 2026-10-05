@@ -6,15 +6,19 @@ services:
       POSTGRES_USER: library
       POSTGRES_PASSWORD: library
     ports:
-      - "5432:5432"
+    - target: 5432
+      published: 57730
+      protocol: tcp
+      host_ip: 127.0.0.1
     volumes:
-      - pgdata:/var/lib/postgresql/data
+    - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U library -d library"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U library -d library
       interval: 5s
       timeout: 3s
       retries: 10
-
   app:
     build: .
     depends_on:
@@ -25,7 +29,9 @@ services:
       SPRING_DATASOURCE_USER: library
       SPRING_DATASOURCE_PASSWORD: library
     ports:
-      - "8080:8080"
-
+    - target: 8080
+      published: 57731
+      protocol: tcp
+      host_ip: 127.0.0.1
 volumes:
-  pgdata:
+  pgdata: null
